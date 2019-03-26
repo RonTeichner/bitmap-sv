@@ -106,6 +106,18 @@ switch sProcessing.quantize_nBits
         nBitsBlue = 2; nLevelsBlue = 2^nBitsBlue;
         croppedResizedQuantizedFixedPointA(:,:,Bidx) = round(croppedResizedA(:,:,Bidx) * (nLevelsBlue - 1));
         croppedResizedQuantizedDoubleA(:,:,Bidx) = croppedResizedQuantizedFixedPointA(:,:,Bidx) ./ (nLevelsBlue - 1);
+    case 4
+        nBitsRed = 2; nLevelsRed = 2^nBitsRed;
+        croppedResizedQuantizedFixedPointA(:,:,Ridx) = round(croppedResizedA(:,:,Ridx) * (nLevelsRed - 1));
+        croppedResizedQuantizedDoubleA(:,:,Ridx) = croppedResizedQuantizedFixedPointA(:,:,Ridx) ./ (nLevelsRed - 1);
+        
+        nBitsGreen = 1; nLevelsGreen = 2^nBitsGreen;
+        croppedResizedQuantizedFixedPointA(:,:,Gidx) = round(croppedResizedA(:,:,Gidx) * (nLevelsGreen - 1));
+        croppedResizedQuantizedDoubleA(:,:,Gidx) = croppedResizedQuantizedFixedPointA(:,:,Gidx) ./ (nLevelsGreen - 1);
+        
+        nBitsBlue = 1; nLevelsBlue = 2^nBitsBlue;
+        croppedResizedQuantizedFixedPointA(:,:,Bidx) = round(croppedResizedA(:,:,Bidx) * (nLevelsBlue - 1));
+        croppedResizedQuantizedDoubleA(:,:,Bidx) = croppedResizedQuantizedFixedPointA(:,:,Bidx) ./ (nLevelsBlue - 1);        
     case 1
         nBitsRed = 0; nBitsGreen = 0; nBitsBlue = 0;
         whiteTh = 0.5;
@@ -144,7 +156,7 @@ subplot(2,3,1); hist(rValues,50); title('hist red');
 subplot(2,3,2); hist(gValues,50); title('hist green');
 subplot(2,3,3); hist(bValues,50); title('hist blue');
 switch sProcessing.quantize_nBits
-    case 8
+    case {8,4}
         rValuesQ = croppedResizedQuantizedDoubleA(:,:,Ridx); rValuesQ = rValuesQ(:);
         gValuesQ = croppedResizedQuantizedDoubleA(:,:,Gidx); gValuesQ = gValuesQ(:);
         bValuesQ = croppedResizedQuantizedDoubleA(:,:,Bidx); bValuesQ = bValuesQ(:);
@@ -313,7 +325,7 @@ function BitmapWriteSvFile(outputVerilogFileName,croppedResizedQuantizedFixedPoi
 nRows = size(croppedResizedQuantizedFixedPointA,1);
 nCols = size(croppedResizedQuantizedFixedPointA,2);
 switch quantize_nBits
-    case 8
+    case {8,4}
         totalNumBits = nBitsRed + nBitsGreen + nBitsBlue;
     case 1
         totalNumBits = 1;
@@ -321,7 +333,29 @@ end
 
 [Ridx, Gidx, Bidx] = deal(1,2,3);
 
+dotIdx = strfind(outputVerilogFileName,'.');
+if numel(dotIdx) > 0
+    moduleName = outputVerilogFileName{1}(1:dotIdx-1);
+else
+    moduleName = outputVerilogFileName{1};
+end
+
 fileID = fopen(outputVerilogFileName,'w');
+fprintf(fileID,'module %s (\n',moduleName);
+
+fprintf(fileID,'    input logic clk,\n');
+fprintf(fileID,'    input logic resetN,\n');
+fprintf(fileID,'    input logic [10:0] offsetX, // offset from top left  position \n');
+fprintf(fileID,'    input logic [10:0] offsetY,\n');
+fprintf(fileID,'    input logic InsideRectangle, //input that the pixel is within a bracket \n');
+fprintf(fileID,'    output logic drawingRequest, //output that the pixel should be dispalyed \n');
+fprintf(fileID,'    output logic [23:0] RGBout //rgb value form the bitmap \n');
+fprintf(fileID,');\n');
+fprintf(fileID,'\n');
+
+fprintf(fileID,'localparam logic [%d:0] TRANSPARENT_ENCODING = %d''hFF ;// RGB value in the bitmap representing a transparent pixel ',[(totalNumBits-1) ,totalNumBits] );
+fprintf(fileID,'\n');
+
 fprintf(fileID,'localparam  int OBJECT_WIDTH_X = %d;\n',nRows);
 fprintf(fileID,'localparam  int OBJECT_HEIGHT_Y = %d;\n',nCols);
 fprintf(fileID,'\n');
@@ -331,7 +365,7 @@ for r=1:nRows
     fprintf(fileID,'{');
     for c=1:nCols
         switch quantize_nBits
-            case 8
+            case {8,4}
                 val = croppedResizedQuantizedFixedPointA(r,c,Bidx) + croppedResizedQuantizedFixedPointA(r,c,Gidx)*2^nBitsBlue + croppedResizedQuantizedFixedPointA(r,c,Ridx)*2^(nBitsBlue+nBitsGreen);
             case 1
                 val = croppedResizedQuantizedFixedPointA(r,c);
@@ -340,7 +374,7 @@ for r=1:nRows
             val = 2^totalNumBits - 1; % value for transparency
         end
         switch quantize_nBits
-            case 8
+            case {8,4}
                 fprintf(fileID,'%d''h%02X, ',[totalNumBits,val]);
             case 1
                 fprintf(fileID,'%d''b%01X, ',[totalNumBits,val]);
@@ -354,6 +388,53 @@ for r=1:nRows
 end
 
 fprintf(fileID,'};');
+fprintf(fileID,'\n');
+fprintf(fileID,'\n');
+
+fprintf(fileID,'wire [7:0] red_sig, green_sig, blue_sig;\n');
+
+switch quantize_nBits
+    case 8
+        fprintf(fileID,'assign red_sig     = {object_colors[offsetY][offsetX][7:5] , 5''d0};\n');
+        fprintf(fileID,'assign green_sig   = {object_colors[offsetY][offsetX][4:2] , 5''d0};\n');
+        fprintf(fileID,'assign blue_sig    = {object_colors[offsetY][offsetX][1:0] , 6''d0};\n');
+    case 4
+        fprintf(fileID,'assign red_sig     = {object_colors[offsetY][offsetX][3:2] , 6''d0};\n');
+        fprintf(fileID,'assign green_sig   = {object_colors[offsetY][offsetX][1:1] , 7''d0};\n');
+        fprintf(fileID,'assign blue_sig    = {object_colors[offsetY][offsetX][0:0] , 7''d0};\n');        
+    case 1
+        fprintf(fileID,'assign red_sig     = {object_colors[offsetY][offsetX][0:0] , 7''hff};\n');
+        fprintf(fileID,'assign green_sig   = {object_colors[offsetY][offsetX][0:0] , 7''hff};\n');
+        fprintf(fileID,'assign blue_sig    = {object_colors[offsetY][offsetX][0:0] , 7''hff};\n');
+end
+
+fprintf(fileID,'\n');
+fprintf(fileID,'\n');
+
+fprintf(fileID,'always_ff@(posedge clk)\n');
+fprintf(fileID,'begin\n');
+
+fprintf(fileID,'       RGBout      <= {red_sig,green_sig,blue_sig};\n');
+fprintf(fileID,'       if (InsideRectangle == 1''b1 ) begin // inside an external bracket \n');
+if (quantize_nBits > 1)
+    fprintf(fileID,'            if (object_colors[offsetY][offsetX] != TRANSPARENT_ENCODING)\n');
+else
+    fprintf(fileID,'            if (object_colors[offsetY][offsetX] == 1''b1)\n');
+end        
+fprintf(fileID,'                drawingRequest <= 1''b1;\n');
+fprintf(fileID,'            else\n');
+fprintf(fileID,'                drawingRequest <= 1''b0;\n');
+fprintf(fileID,'       end\n');
+fprintf(fileID,'       else\n');
+fprintf(fileID,'            drawingRequest <= 1''b0;\n');
+
+
+fprintf(fileID,'end\n');
+
+fprintf(fileID,'\n');
+
+fprintf(fileID,'endmodule');
+
 
 fclose(fileID);
 disp(strcat(outputVerilogFileName, ' written to disk'));

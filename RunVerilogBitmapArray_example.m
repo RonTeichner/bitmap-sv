@@ -1,11 +1,11 @@
 clear; close all; clc; 
 
 %inputImageFileName      = "corn.tif";
-inputImageFileName      = "ngc6543a.jpg";
-%inputImageFileName      = "EEEL LOGO TRANSPERANT.png";
+%inputImageFileName      = "ngc6543a.jpg";
+inputImageFileName      = "EEEL LOGO TRANSPERANT.png";
 %inputImageFileName      = "peppers.png";
 
-outputVerilogFileName   = "ngc6543aBitmap.sv";
+outputVerilogFileName   = "smileyBitMap.sv";
 
 sProcessing.binaryTransparencyTh = 1; % [%]
 
@@ -16,7 +16,7 @@ sProcessing.sCrop.xyCenter      = [50,45]; % [%] % x values are left to right; y
 sProcessing.sResize.enable  = true;
 sProcessing.sResize.new_xy  = [32,32];
 
-sProcessing.quantize_nBits = 8; % {8 - 3Red, 3Green, 2Blue ; 1 - black&white image}
+sProcessing.quantize_nBits = 8; % {8 - 3Red, 3Green, 2Blue ; 4 - 2Red, 1Green, 1Blue ; 1 - black&white image}
 
 
 VerilogBitmapArray(inputImageFileName,outputVerilogFileName,sProcessing)
