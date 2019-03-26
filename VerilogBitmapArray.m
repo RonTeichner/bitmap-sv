@@ -32,8 +32,7 @@ function VerilogBitmapArray(inputImageFileName,outputVerilogFileName,sProcessing
 %           resized picture
 %   quantize_nBits - no. of bits in the quantized image:
 %       case (quantize_nBits == 8): red: 3bits, green: 3bits, blue: 3bits.
-%       case (quantize_nBits == 4): red: 1bit, green: 1bit1, blue: 1bit1 +
-%           1 bit for brightness (lsb)
+%       case (quantize_nBits == 4): red: 2bit, green: 1bit1, blue: 1bit1
 %       case (quantize_nBits == 1): black&white image
 %   binaryTransparencyTh - for png images there sometimes is a transparency
 %       value for every pixel. In the output verilog file we support a
@@ -124,6 +123,8 @@ switch sProcessing.quantize_nBits
         greyScaleImage = 0.2989 * croppedResizedA(:,:,Ridx) + 0.5870 * croppedResizedA(:,:,Gidx) + 0.1140 * croppedResizedA(:,:,Bidx);
         croppedResizedQuantizedFixedPointA = greyScaleImage > whiteTh;
         croppedResizedQuantizedDoubleA = croppedResizedQuantizedFixedPointA;
+	otherwise
+		disp('Quantization level @ sProcessing.quantize_nBits not supported');
 end
 
 %% write systemVerilog file
@@ -313,7 +314,7 @@ function BitmapWriteSvFile(outputVerilogFileName,croppedResizedQuantizedFixedPoi
 % outputVerilogFileName - a string
 % croppedResizedQuantizedFixedPointA - RGB image
 % transparency matrix with size(croppedResizedQuantizedFixedPointA)
-% quantize_nBits -
+% quantize_nBits - numberof bits in quantized image. 8,4,1 are supported
 % nBitsRed,nBitsGreen,nBitsBlue - number of bits for every color
 %
 % Outputs
