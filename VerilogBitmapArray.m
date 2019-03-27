@@ -99,7 +99,7 @@ end
 
 switch sProcessing.quantize_nBits
     case 8
-        nBitsRed = 3; nBitsGreen = 2; nBitsBlue = 2;
+        nBitsRed = 3; nBitsGreen = 3; nBitsBlue = 2;
         [croppedResizedQuantizedFixedPointA,croppedResizedQuantizedDoubleA] = ...
             BitmapQuant(nBitsRed,nBitsGreen,nBitsBlue,croppedResizedA);
     case 4
@@ -124,6 +124,7 @@ else
     BitmapWriteSvFile(outputVerilogFileName,croppedResizedQuantizedFixedPointA,croppedResizedBinaryTransp,sProcessing.quantize_nBits,nBitsRed,nBitsGreen,nBitsBlue);
 end
 %% figures
+[Ridx,Gidx,Bidx] = deal(1,2,3);
 f1 = figure;
 movegui(f1,'west');
 subplot(2,3,1); im=imshow(A); title('original image');
@@ -347,9 +348,9 @@ nRows = size(croppedResizedQuantizedFixedPointA,1);
 nCols = size(croppedResizedQuantizedFixedPointA,2);
 switch quantize_nBits
     case {8,4}
-        totalNumBits = nBitsRed + nBitsGreen + nBitsBlue;
+        totalNumBitsPerPixel = nBitsRed + nBitsGreen + nBitsBlue;
     case 1
-        totalNumBits = 1;
+        totalNumBitsPerPixel = 1;
 end
 
 [Ridx, Gidx, Bidx] = deal(1,2,3);
@@ -374,17 +375,25 @@ fprintf(fileID,'    output logic [23:0] RGBout //rgb value form the bitmap \n');
 fprintf(fileID,');\n');
 fprintf(fileID,'\n');
 
-fprintf(fileID,'localparam logic [%d:0] TRANSPARENT_ENCODING = %d''hFF ;// RGB value in the bitmap representing a transparent pixel ',[(totalNumBits-1) ,totalNumBits] );
+fprintf(fileID,'localparam logic [%d:0] TRANSPARENT_ENCODING = %d''hFF ;// RGB value in the bitmap representing a transparent pixel ',[(totalNumBitsPerPixel-1) ,totalNumBitsPerPixel] );
 fprintf(fileID,'\n');
 
 fprintf(fileID,'localparam  int OBJECT_WIDTH_X = %d;\n',nRows);
 fprintf(fileID,'localparam  int OBJECT_HEIGHT_Y = %d;\n',nCols);
 fprintf(fileID,'\n');
-fprintf(fileID,'logic [0:OBJECT_HEIGHT_Y-1] [0:OBJECT_WIDTH_X-1] [%d-1:0] object_colors = {\n',totalNumBits);
+
+switch quantize_nBits
+    case {8,4}
+        fprintf(fileID,'logic [0:OBJECT_HEIGHT_Y-1] [0:OBJECT_WIDTH_X-1] [%d-1:0] object_colors = {\n',totalNumBitsPerPixel);
+    case 1
+        fprintf(fileID,'logic [0:OBJECT_HEIGHT_Y-1] [%d*%d-1:0] object_colors = {\n',[totalNumBitsPerPixel,nCols]);
+end
+
 
 for r=1:nRows
     fprintf(fileID,'{');
     for c=1:nCols
+        % get pixel val:
         switch quantize_nBits
             case {8,4}
                 val = croppedResizedQuantizedFixedPointA(r,c,Bidx) + croppedResizedQuantizedFixedPointA(r,c,Gidx)*2^nBitsBlue + croppedResizedQuantizedFixedPointA(r,c,Ridx)*2^(nBitsBlue+nBitsGreen);
@@ -392,13 +401,25 @@ for r=1:nRows
                 val = croppedResizedQuantizedFixedPointA(r,c);
         end
         if croppedResizedBinaryTransp(r,c)
-            val = 2^totalNumBits - 1; % value for transparency
+            val = 2^totalNumBitsPerPixel - 1; % value for transparency
         end
+        
+        
         switch quantize_nBits
             case {8,4}
-                fprintf(fileID,'%d''h%02X, ',[totalNumBits,val]);
+                fprintf(fileID,'%d''h%02X, ',[totalNumBitsPerPixel,val]);
+                %             case 4
+                %                 if c==1
+                %                     fprintf(fileID,'%d''h%01X',[totalNumBitsPerPixel*nCols,val]);
+                %                 else
+                %                     fprintf(fileID,'%01X',val);
+                %                 end
             case 1
-                fprintf(fileID,'%d''b%01X, ',[totalNumBits,val]);
+                if c==1
+                    fprintf(fileID,'%d''b%01X',[totalNumBitsPerPixel*nCols,val]);
+                else
+                    fprintf(fileID,'%01X',val);
+                end
         end
     end
     if r < nRows
@@ -423,10 +444,34 @@ switch quantize_nBits
         fprintf(fileID,'assign red_sig     = {object_colors[offsetY][offsetX][3:2] , 6''d0};\n');
         fprintf(fileID,'assign green_sig   = {object_colors[offsetY][offsetX][1:1] , 7''d0};\n');
         fprintf(fileID,'assign blue_sig    = {object_colors[offsetY][offsetX][0:0] , 7''d0};\n');
+        %         fprintf(fileID,'case(offsetX)\n');
+        %         for c=1:nCols
+        %             fprintf(fileID,'    11''d%d :  red_sig     = {object_colors[offsetY][%d:%d] , 6''d0};\n',[c,c*4+3,c*4+2]);
+        %         end
+        %         fprintf(fileID,'    default :  red_sig = 8''h00;\n');
+        %         fprintf(fileID,'endcase\n');
+        %
+        %         fprintf(fileID,'case(offsetX)\n');
+        %         for c=1:nCols
+        %             fprintf(fileID,'    11''d%d :  green_sig     = {object_colors[offsetY][%d:%d] , 7''d0};\n',[c,c*4+1,c*4+1]);
+        %         end
+        %         fprintf(fileID,'    default :  green_sig = 8''h00;\n');
+        %         fprintf(fileID,'endcase\n');
+        %
+        %         fprintf(fileID,'case(offsetX)\n');
+        %         for c=1:nCols
+        %             fprintf(fileID,'    11''d%d :  blue_sig     = {object_colors[offsetY][%d:%d] , 7''d0};\n',[c,c*4+0,c*4+0]);
+        %         end
+        %         fprintf(fileID,'    default :  blue_sig = 8''h00;\n');
+        %         fprintf(fileID,'endcase\n');
+        %
+        %         fprintf(fileID,'assign red_sig     = {object_colors[offsetY][offsetX*%d+3:offsetX*%d+2] , 6''d0};\n',[totalNumBitsPerPixel,totalNumBitsPerPixel]);
+        %         fprintf(fileID,'assign green_sig   = {object_colors[offsetY][offsetX*%d+1:offsetX*%d+1] , 7''d0};\n',[totalNumBitsPerPixel,totalNumBitsPerPixel]);
+        %         fprintf(fileID,'assign blue_sig    = {object_colors[offsetY][offsetX*%d+0:offsetX*%d+0] , 7''d0};\n',[totalNumBitsPerPixel,totalNumBitsPerPixel]);
     case 1
-        fprintf(fileID,'assign red_sig     = {object_colors[offsetY][offsetX][0:0] , 7''hff};\n');
-        fprintf(fileID,'assign green_sig   = {object_colors[offsetY][offsetX][0:0] , 7''hff};\n');
-        fprintf(fileID,'assign blue_sig    = {object_colors[offsetY][offsetX][0:0] , 7''hff};\n');
+        fprintf(fileID,'assign red_sig     = {object_colors[offsetY][offsetX] , 6''d0};\n');
+        fprintf(fileID,'assign green_sig   = {object_colors[offsetY][offsetX] , 7''d0};\n');
+        fprintf(fileID,'assign blue_sig    = {object_colors[offsetY][offsetX] , 7''d0};\n');
 end
 
 fprintf(fileID,'\n');
@@ -437,10 +482,14 @@ fprintf(fileID,'begin\n');
 
 fprintf(fileID,'       RGBout      <= {red_sig,green_sig,blue_sig};\n');
 fprintf(fileID,'       if (InsideRectangle == 1''b1 ) begin // inside an external bracket \n');
-if (quantize_nBits > 1)
-    fprintf(fileID,'            if (object_colors[offsetY][offsetX] != TRANSPARENT_ENCODING)\n');
-else
-    fprintf(fileID,'            if (object_colors[offsetY][offsetX] == 1''b1)\n');
+
+switch quantize_nBits
+    case {8,4}
+        fprintf(fileID,'            if (object_colors[offsetY][offsetX] != TRANSPARENT_ENCODING)\n');
+        %     case 4
+        %         fprintf(fileID,'            if (object_colors[offsetY][offsetX*(%d+1):offsetX*%d] != TRANSPARENT_ENCODING)\n',[totalNumBitsPerPixel,totalNumBitsPerPixel]);
+    case 1
+        fprintf(fileID,'            if (object_colors[offsetY][offsetX] == 1''b1)\n');
 end
 fprintf(fileID,'                drawingRequest <= 1''b1;\n');
 fprintf(fileID,'            else\n');
