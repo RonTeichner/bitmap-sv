@@ -344,6 +344,8 @@ function BitmapWriteSvFile(outputVerilogFileName,croppedResizedQuantizedFixedPoi
 %
 % Ron Teichner, 25.03.2019
 
+enableFullSvFile = false;
+
 nRows = size(croppedResizedQuantizedFixedPointA,1);
 nCols = size(croppedResizedQuantizedFixedPointA,2);
 switch quantize_nBits
@@ -363,21 +365,22 @@ else
 end
 
 fileID = fopen(outputVerilogFileName,'w');
-fprintf(fileID,'module %s (\n',moduleName);
-
-fprintf(fileID,'    input logic clk,\n');
-fprintf(fileID,'    input logic resetN,\n');
-fprintf(fileID,'    input logic [10:0] offsetX, // offset from top left  position \n');
-fprintf(fileID,'    input logic [10:0] offsetY,\n');
-fprintf(fileID,'    input logic InsideRectangle, //input that the pixel is within a bracket \n');
-fprintf(fileID,'    output logic drawingRequest, //output that the pixel should be dispalyed \n');
-fprintf(fileID,'    output logic [23:0] RGBout //rgb value form the bitmap \n');
-fprintf(fileID,');\n');
-fprintf(fileID,'\n');
-
-fprintf(fileID,'localparam logic [%d:0] TRANSPARENT_ENCODING = %d''hFF ;// RGB value in the bitmap representing a transparent pixel ',[(totalNumBitsPerPixel-1) ,totalNumBitsPerPixel] );
-fprintf(fileID,'\n');
-
+if enableFullSvFile
+    fprintf(fileID,'module %s (\n',moduleName);
+    
+    fprintf(fileID,'    input logic clk,\n');
+    fprintf(fileID,'    input logic resetN,\n');
+    fprintf(fileID,'    input logic [10:0] offsetX, // offset from top left  position \n');
+    fprintf(fileID,'    input logic [10:0] offsetY,\n');
+    fprintf(fileID,'    input logic InsideRectangle, //input that the pixel is within a bracket \n');
+    fprintf(fileID,'    output logic drawingRequest, //output that the pixel should be dispalyed \n');
+    fprintf(fileID,'    output logic [23:0] RGBout //rgb value form the bitmap \n');
+    fprintf(fileID,');\n');
+    fprintf(fileID,'\n');
+    
+    fprintf(fileID,'localparam logic [%d:0] TRANSPARENT_ENCODING = %d''hFF ;// RGB value in the bitmap representing a transparent pixel ',[(totalNumBitsPerPixel-1) ,totalNumBitsPerPixel] );
+    fprintf(fileID,'\n');
+end
 fprintf(fileID,'localparam  int OBJECT_WIDTH_X = %d;\n',nRows);
 fprintf(fileID,'localparam  int OBJECT_HEIGHT_Y = %d;\n',nCols);
 fprintf(fileID,'\n');
@@ -476,36 +479,36 @@ end
 
 fprintf(fileID,'\n');
 fprintf(fileID,'\n');
-
-fprintf(fileID,'always_ff@(posedge clk)\n');
-fprintf(fileID,'begin\n');
-
-fprintf(fileID,'       RGBout      <= {red_sig,green_sig,blue_sig};\n');
-fprintf(fileID,'       if (InsideRectangle == 1''b1 ) begin // inside an external bracket \n');
-
-switch quantize_nBits
-    case {8,4}
-        fprintf(fileID,'            if (object_colors[offsetY][offsetX] != TRANSPARENT_ENCODING)\n');
-        %     case 4
-        %         fprintf(fileID,'            if (object_colors[offsetY][offsetX*(%d+1):offsetX*%d] != TRANSPARENT_ENCODING)\n',[totalNumBitsPerPixel,totalNumBitsPerPixel]);
-    case 1
-        fprintf(fileID,'            if (object_colors[offsetY][offsetX] == 1''b1)\n');
+if enableFullSvFile
+    fprintf(fileID,'always_ff@(posedge clk)\n');
+    fprintf(fileID,'begin\n');
+    
+    fprintf(fileID,'       RGBout      <= {red_sig,green_sig,blue_sig};\n');
+    fprintf(fileID,'       if (InsideRectangle == 1''b1 ) begin // inside an external bracket \n');
+    
+    switch quantize_nBits
+        case {8,4}
+            fprintf(fileID,'            if (object_colors[offsetY][offsetX] != TRANSPARENT_ENCODING)\n');
+            %     case 4
+            %         fprintf(fileID,'            if (object_colors[offsetY][offsetX*(%d+1):offsetX*%d] != TRANSPARENT_ENCODING)\n',[totalNumBitsPerPixel,totalNumBitsPerPixel]);
+        case 1
+            fprintf(fileID,'            if (object_colors[offsetY][offsetX] == 1''b1)\n');
+    end
+    fprintf(fileID,'                drawingRequest <= 1''b1;\n');
+    fprintf(fileID,'            else\n');
+    fprintf(fileID,'                drawingRequest <= 1''b0;\n');
+    fprintf(fileID,'       end\n');
+    fprintf(fileID,'       else\n');
+    fprintf(fileID,'            drawingRequest <= 1''b0;\n');
+    
+    
+    fprintf(fileID,'end\n');
+    
+    fprintf(fileID,'\n');
+    
+    fprintf(fileID,'endmodule');
+    
 end
-fprintf(fileID,'                drawingRequest <= 1''b1;\n');
-fprintf(fileID,'            else\n');
-fprintf(fileID,'                drawingRequest <= 1''b0;\n');
-fprintf(fileID,'       end\n');
-fprintf(fileID,'       else\n');
-fprintf(fileID,'            drawingRequest <= 1''b0;\n');
-
-
-fprintf(fileID,'end\n');
-
-fprintf(fileID,'\n');
-
-fprintf(fileID,'endmodule');
-
-
 fclose(fileID);
 disp(strcat(outputVerilogFileName, ' written to disk'));
 end
