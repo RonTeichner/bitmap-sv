@@ -66,6 +66,12 @@ if ~isempty(map)
 end
 A = double(A);
 A = A./max(A(:)); % scaling A values to capture full [0,1] range
+
+if numel(size(A)) == 1
+    disp('image has only one dimension')
+    return;
+end
+
 binaryTransp = false(size(A,1) , size(A,2));
 if ~isempty(transparency)
     disp('image has transparency; scale binary threshold using sProcessing.binaryTransparencyTh');
@@ -90,41 +96,25 @@ end
 
 %% Quantize image
 % scale values to [0,255]:
-[Ridx, Gidx, Bidx] = deal(1,2,3);
 
 switch sProcessing.quantize_nBits
     case 8
-        nBitsRed = 3; nLevelsRed = 2^nBitsRed;
-        croppedResizedQuantizedFixedPointA(:,:,Ridx) = round(croppedResizedA(:,:,Ridx) * (nLevelsRed - 1));
-        croppedResizedQuantizedDoubleA(:,:,Ridx) = croppedResizedQuantizedFixedPointA(:,:,Ridx) ./ (nLevelsRed - 1);
-        
-        nBitsGreen = 3; nLevelsGreen = 2^nBitsGreen;
-        croppedResizedQuantizedFixedPointA(:,:,Gidx) = round(croppedResizedA(:,:,Gidx) * (nLevelsGreen - 1));
-        croppedResizedQuantizedDoubleA(:,:,Gidx) = croppedResizedQuantizedFixedPointA(:,:,Gidx) ./ (nLevelsGreen - 1);
-        
-        nBitsBlue = 2; nLevelsBlue = 2^nBitsBlue;
-        croppedResizedQuantizedFixedPointA(:,:,Bidx) = round(croppedResizedA(:,:,Bidx) * (nLevelsBlue - 1));
-        croppedResizedQuantizedDoubleA(:,:,Bidx) = croppedResizedQuantizedFixedPointA(:,:,Bidx) ./ (nLevelsBlue - 1);
+        nBitsRed = 3; nBitsGreen = 2; nBitsBlue = 2;
+        [croppedResizedQuantizedFixedPointA,croppedResizedQuantizedDoubleA] = ...
+            BitmapQuant(nBitsRed,nBitsGreen,nBitsBlue,croppedResizedA);
     case 4
-        nBitsRed = 2; nLevelsRed = 2^nBitsRed;
-        croppedResizedQuantizedFixedPointA(:,:,Ridx) = round(croppedResizedA(:,:,Ridx) * (nLevelsRed - 1));
-        croppedResizedQuantizedDoubleA(:,:,Ridx) = croppedResizedQuantizedFixedPointA(:,:,Ridx) ./ (nLevelsRed - 1);
-        
-        nBitsGreen = 1; nLevelsGreen = 2^nBitsGreen;
-        croppedResizedQuantizedFixedPointA(:,:,Gidx) = round(croppedResizedA(:,:,Gidx) * (nLevelsGreen - 1));
-        croppedResizedQuantizedDoubleA(:,:,Gidx) = croppedResizedQuantizedFixedPointA(:,:,Gidx) ./ (nLevelsGreen - 1);
-        
-        nBitsBlue = 1; nLevelsBlue = 2^nBitsBlue;
-        croppedResizedQuantizedFixedPointA(:,:,Bidx) = round(croppedResizedA(:,:,Bidx) * (nLevelsBlue - 1));
-        croppedResizedQuantizedDoubleA(:,:,Bidx) = croppedResizedQuantizedFixedPointA(:,:,Bidx) ./ (nLevelsBlue - 1);        
+        nBitsRed = 2; nBitsGreen = 1; nBitsBlue = 1;
+        [croppedResizedQuantizedFixedPointA,croppedResizedQuantizedDoubleA] = ...
+            BitmapQuant(nBitsRed,nBitsGreen,nBitsBlue,croppedResizedA);
     case 1
         nBitsRed = 0; nBitsGreen = 0; nBitsBlue = 0;
+        [Ridx,Gidx,Bidx] = deal(1,2,3);
         whiteTh = 0.5;
         greyScaleImage = 0.2989 * croppedResizedA(:,:,Ridx) + 0.5870 * croppedResizedA(:,:,Gidx) + 0.1140 * croppedResizedA(:,:,Bidx);
         croppedResizedQuantizedFixedPointA = greyScaleImage > whiteTh;
         croppedResizedQuantizedDoubleA = croppedResizedQuantizedFixedPointA;
-	otherwise
-		disp('Quantization level @ sProcessing.quantize_nBits not supported');
+    otherwise
+        disp('Quantization level @ sProcessing.quantize_nBits not supported');
 end
 
 %% write systemVerilog file
@@ -165,6 +155,36 @@ switch sProcessing.quantize_nBits
         subplot(2,3,5); hist(gValuesQ,50);title('hist green quantized');
         subplot(2,3,6); hist(bValuesQ,50);title('hist blue quantized');
 end
+end
+
+function [croppedResizedQuantizedFixedPointA,croppedResizedQuantizedDoubleA] = BitmapQuant(nBitsRed,nBitsGreen,nBitsBlue,croppedResizedA)
+[Ridx, Gidx, Bidx] = deal(1,2,3);
+nColors = size(croppedResizedA,3);
+
+if Ridx <= nColors
+    nLevelsRed = 2^nBitsRed;
+    croppedResizedQuantizedFixedPointA(:,:,Ridx) = round(croppedResizedA(:,:,Ridx) * (nLevelsRed - 1));
+else
+    croppedResizedQuantizedFixedPointA(:,:,Ridx) = zeros(size(croppedResizedA(:,:,1)));
+end
+croppedResizedQuantizedDoubleA(:,:,Ridx) = croppedResizedQuantizedFixedPointA(:,:,Ridx) ./ (nLevelsRed - 1);
+
+if Gidx <= nColors
+    nLevelsGreen = 2^nBitsGreen;
+    croppedResizedQuantizedFixedPointA(:,:,Gidx) = round(croppedResizedA(:,:,Gidx) * (nLevelsGreen - 1));
+else
+    croppedResizedQuantizedFixedPointA(:,:,Gidx) = zeros(size(croppedResizedA(:,:,1)));
+end
+croppedResizedQuantizedDoubleA(:,:,Gidx) = croppedResizedQuantizedFixedPointA(:,:,Gidx) ./ (nLevelsGreen - 1);
+
+if Bidx <= nColors
+    nLevelsBlue = 2^nBitsBlue;
+    croppedResizedQuantizedFixedPointA(:,:,Bidx) = round(croppedResizedA(:,:,Bidx) * (nLevelsBlue - 1));
+else
+    croppedResizedQuantizedFixedPointA(:,:,Bidx) = zeros(size(croppedResizedA(:,:,1)));
+end
+croppedResizedQuantizedDoubleA(:,:,Bidx) = croppedResizedQuantizedFixedPointA(:,:,Bidx) ./ (nLevelsBlue - 1);
+
 end
 
 function [croppedA,croppedbinaryTransp] = BitmapCropping(A,binaryTransp,sProcessing)
@@ -402,7 +422,7 @@ switch quantize_nBits
     case 4
         fprintf(fileID,'assign red_sig     = {object_colors[offsetY][offsetX][3:2] , 6''d0};\n');
         fprintf(fileID,'assign green_sig   = {object_colors[offsetY][offsetX][1:1] , 7''d0};\n');
-        fprintf(fileID,'assign blue_sig    = {object_colors[offsetY][offsetX][0:0] , 7''d0};\n');        
+        fprintf(fileID,'assign blue_sig    = {object_colors[offsetY][offsetX][0:0] , 7''d0};\n');
     case 1
         fprintf(fileID,'assign red_sig     = {object_colors[offsetY][offsetX][0:0] , 7''hff};\n');
         fprintf(fileID,'assign green_sig   = {object_colors[offsetY][offsetX][0:0] , 7''hff};\n');
@@ -421,7 +441,7 @@ if (quantize_nBits > 1)
     fprintf(fileID,'            if (object_colors[offsetY][offsetX] != TRANSPARENT_ENCODING)\n');
 else
     fprintf(fileID,'            if (object_colors[offsetY][offsetX] == 1''b1)\n');
-end        
+end
 fprintf(fileID,'                drawingRequest <= 1''b1;\n');
 fprintf(fileID,'            else\n');
 fprintf(fileID,'                drawingRequest <= 1''b0;\n');
