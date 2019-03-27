@@ -117,11 +117,14 @@ switch sProcessing.quantize_nBits
         disp('Quantization level @ sProcessing.quantize_nBits not supported');
 end
 
-%% write systemVerilog file
+%% write systemVerilog file and mif file
 if ~isstring(outputVerilogFileName)
     disp('outputVerilogFileName is not a string - no systemVerilog file was created; example: outputVerilogFileName = "bitmapArray.sv"');
 else
     BitmapWriteSvFile(outputVerilogFileName,croppedResizedQuantizedFixedPointA,croppedResizedBinaryTransp,sProcessing.quantize_nBits,nBitsRed,nBitsGreen,nBitsBlue);
+    ramSize = numel(croppedResizedQuantizedFixedPointA);
+    wordSize = sProcessing.quantize_nBits;
+    BitmapMifGen(outputVerilogFileName,croppedResizedQuantizedFixedPointA(:),wordSize,ramSize);
 end
 %% figures
 [Ridx,Gidx,Bidx] = deal(1,2,3);
@@ -512,3 +515,44 @@ end
 fclose(fileID);
 disp(strcat(outputVerilogFileName, ' written to disk'));
 end
+
+function BitmapMifGen(outputVerilogFileName,values,word_size,ram_size)
+% ram_size [words]
+% word_size [bits]
+% values - column vector
+%-------------------------------------------------------------------
+% Open mif file for write
+%
+
+dotIdx = strfind(outputVerilogFileName,'.');
+if numel(dotIdx) > 0
+    mifFileName = [outputVerilogFileName{1}(1:dotIdx-1), '.mif'];
+else
+    mifFileName = [outputVerilogFileName{1}, '.mif'];
+end
+
+fileID = fopen(mifFileName, 'w');
+
+fprintf( fileID, '%s%d%s\n', 'WIDTH=', word_size, ';');
+fprintf( fileID, '%s%d%s\n\n', 'DEPTH=', ram_size, ';');
+fprintf( fileID, '%s\n', 'ADDRESS_RADIX=HEX;');
+fprintf( fileID, '%s\n\n', 'DATA_RADIX=HEX;');
+fprintf( fileID, '%s\n', 'CONTENT BEGIN');
+
+% data format
+fdata = int2str(word_size/4);
+faddr = int2str(log2(ram_size)/4);
+format_str = strcat('    %0', faddr, 'X  :  %0', fdata, 'X;\n');
+
+% write values to file
+idx = 0;
+for ii=1:ram_size
+    fprintf( fileID, format_str, idx, values(idx+1));
+    idx = idx+1;
+end
+fprintf( fileID, '%s\n', 'END;');
+
+fclose( fileID);
+disp([mifFileName,' written to disk']);
+end
+
