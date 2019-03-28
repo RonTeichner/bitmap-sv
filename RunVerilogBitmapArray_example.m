@@ -15,12 +15,12 @@ sProcessing.sCrop.xyPortions    = [25,25]; % [%]
 sProcessing.sCrop.xyCenter      = [50,45]; % [%] % x values are left to right; y values are up to down
 
 sProcessing.sResize.enable  = true;
-sProcessing.sResize.new_xy  = [32,16];
+sProcessing.sResize.new_xy  = [5,5];
 
-sProcessing.quantize_nBits = 1; % {8 - 3Red, 3Green, 2Blue ; 4 - 2Red, 1Green, 1Blue ; 1 - black&white image}
+sProcessing.quantize_nBits = 4; % {8 - 3Red, 3Green, 2Blue ; 4 - 2Red, 1Green, 1Blue ; 1 - black&white image}
 
-%VerilogBitmapArray(inputImageFileName,outputVerilogFileName,sProcessing)
-VerilogBitmapArray
+VerilogBitmapArray(inputImageFileName,outputVerilogFileName,sProcessing)
+%VerilogBitmapArray
 
 % create the exe:
 % mcc -m VerilogBitmapArray.m
