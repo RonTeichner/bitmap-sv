@@ -443,7 +443,11 @@ for r=1:nRows
         
         switch quantize_nBits
             case {8}
-                fprintf(fileID,'%d''h%02X, ',[totalNumBitsPerPixel,val]);
+                if c < nCols
+                    fprintf(fileID,'%d''h%02X, ',[totalNumBitsPerPixel,val]);
+                else
+                    fprintf(fileID,'%d''h%02X ',[totalNumBitsPerPixel,val]);
+                end
             case 4
                 if c==1
                     fprintf(fileID,'%d''h%01X',[totalNumBitsPerPixel*nCols,val]);
