@@ -414,15 +414,15 @@ if enableFullSvFile
     fprintf(fileID,'localparam logic [%d:0] TRANSPARENT_ENCODING = %d''hFF ;// RGB value in the bitmap representing a transparent pixel ',[(totalNumBitsPerPixel-1) ,totalNumBitsPerPixel] );
     fprintf(fileID,'\n');
 end
-fprintf(fileID,'localparam  int OBJECT_WIDTH_X = %d;\n',nRows);
-fprintf(fileID,'localparam  int OBJECT_HEIGHT_Y = %d;\n',nCols);
+fprintf(fileID,'localparam  int OBJECT_HEIGHT_Y = %d;\n',nRows);
+fprintf(fileID,'localparam  int OBJECT_WIDTH_X = %d;\n',nCols);
 fprintf(fileID,'\n');
 
 switch quantize_nBits
     case {8,4}
-        fprintf(fileID,'logic [0:OBJECT_HEIGHT_Y-1] [0:OBJECT_WIDTH_X-1] [%d-1:0] object_colors = {\n',totalNumBitsPerPixel);
+        fprintf(fileID,'logic [0:OBJECT_WIDTH_X-1] [0:OBJECT_HEIGHT_Y-1] [%d-1:0] object_colors = {\n',totalNumBitsPerPixel);
     case 1
-        fprintf(fileID,'logic [0:OBJECT_HEIGHT_Y-1] [%d*%d-1:0] object_colors = {\n',[totalNumBitsPerPixel,nCols]);
+        fprintf(fileID,'logic [0:OBJECT_WIDTH_X-1] [%d*%d-1:0] object_colors = {\n',[totalNumBitsPerPixel,nCols]);
 end
 
 
