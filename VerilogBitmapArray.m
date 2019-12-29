@@ -334,6 +334,8 @@ if isfield(sProcessing , 'sResize')
             else
                 if numel(sProcessing.sResize.new_xy) == 2
                     croppedResizedA = imresize(croppedA,[sProcessing.sResize.new_xy(2) sProcessing.sResize.new_xy(1)]);
+                    croppedResizedA(croppedResizedA < 0) = 0; 
+                    croppedResizedA(croppedResizedA > 1) = 1; 
                     croppedResizedBinaryTransp = imresize(croppedbinaryTransp,[sProcessing.sResize.new_xy(2) sProcessing.sResize.new_xy(1)]);
                 else
                     disp('sProcessing.sResize.new_xy is not a [2x1] vector - image was not resized');
